@@ -9,6 +9,9 @@
 
 <script src="riffwave.js"></script>
 <script src="sfxr.js"></script>
+<link type="text/css" href="jquery/jquery-ui.css" rel="Stylesheet" />
+<script type="text/javascript" src="jquery/jquery.min.js"></script>
+<script type="text/javascript" src="jquery/jquery-ui.min.js"></script>
 
 <script>
 
@@ -21,7 +24,7 @@ var SAMPLE_SIZE = 8;
 Params.prototype.query = function () {
   var result = "";
   var that = this;
-  Object.keys(this).forEach(function (key) {
+  $.each(this, function (key,value) {
     if (that.hasOwnProperty(key))
       result += "&" + key + "=" + value;
   });
@@ -35,12 +38,10 @@ function gen(fx) {
   PARAMS.sample_size = SAMPLE_SIZE;
   if (fx.indexOf("#") == 0) {
     PARAMS.fromB58(fx.slice(1));
-    document.getElementById("wav").textContent = "random.wav";
-    document.getElementById("wav").setAttribute("download", "random.wav");
+    $("#wav").text("random.wav").attr("download", "random.wav");
   } else {
     PARAMS[fx]();
-    document.getElementById("wav").textContent = fx + ".wav";
-    document.getElementById("wav").setAttribute("download", fx + ".wav");
+    $("#wav").text(fx + ".wav").attr("download", fx + ".wav");
   }
   updateUi();
   play();
@@ -58,36 +59,39 @@ function play(noregen) {
       if (document.location.href.indexOf("#") != -1) {
         document.location.hash = PARAMS.toB58();
       }
-      document.getElementById("copybuffer").value = b58;
-      document.getElementById("share").setAttribute("href", "#" + b58);
+      //$("#permalink").attr("href", "#" + b58)
+      //$("#permalink").text(b58)
+      $("#copybuffer").val(b58);
+      $("#share").attr("href", "#" + b58)
       SOUND = new SoundEffect(PARAMS).generate();
-      document.getElementById("file_size").textContent = Math.round(SOUND.wav.length / 1024) + "kB";
-      document.getElementById("num_samples").textContent = SOUND.header.subChunk2Size / 
-                             (SOUND.header.bitsPerSample >> 3);
-      document.getElementById("clipping").textContent = SOUND.clipping;
+      $("#file_size").text(Math.round(SOUND.wav.length / 1024) + "kB");
+      $("#num_samples").text(SOUND.header.subChunk2Size / 
+                             (SOUND.header.bitsPerSample >> 3));
+      $("#clipping").text(SOUND.clipping);
     }
     
-    document.getElementById("wav").setAttribute("href", SOUND.dataURI);
-    document.getElementById("sfx").setAttribute("href", "sfx.wav?" + PARAMS.query());
+    $("#wav").attr("href", SOUND.dataURI)  ;
+    $("#sfx").attr("href", "sfx.wav?" + PARAMS.query());
     
     SOUND.getAudio().play();
 }
 
 function copy() {
-  var b = document.getElementById("copybuffer");
-  b.style.display = "block";
+  var b = $("#copybuffer");
+  b.css("display", "block");
+  //b.val($("#permalink").text());
   b.select();
   document.execCommand("copy");
-  b.style.display = "none";
+  b.css("display", "none");
 }
 
 function serialize_params() {
-  document.querySelector("textarea").value = JSON.stringify(PARAMS, null, 2);
-  document.getElementById("serialize").style.display = "block";
+  $("textarea").val(JSON.stringify(PARAMS, null, 2));
+  $("#serialize").show();
 }
 
 function deserialize_params() {
-  var newPARAMS = JSON.parse(document.querySelector("textarea").value);
+  var newPARAMS = JSON.parse($("textarea").val());
   PARAMS.fromJSON(newPARAMS);
   play();
   updateUi();
@@ -95,88 +99,76 @@ function deserialize_params() {
 
 function disenable() {
   var duty = PARAMS.wave_type == SQUARE || PARAMS.wave_type == SAWTOOTH;
-  document.getElementById("p_duty").disabled = !duty;
-  document.getElementById("p_duty_ramp").disabled = !duty;
+  $("#p_duty").slider("option", "disabled", !duty);
+  $("#p_duty_ramp").slider("option", "disabled", !duty);
 }
 
 function updateUi() {
-  Object.keys(PARAMS).forEach(function (param) {
+  $.each(PARAMS, function (param, value) {
     if (param == "wave_type") {
-      document.querySelector("#shape input[value='" + PARAMS[param] + "']").checked = true;
+      $("#shape input:radio[value=" + value + "]").
+        prop('checked', true).button("refresh");
     } else if (param == "sample_rate") {
-      document.querySelector("#hz input[value='" + PARAMS[param] + "']").checked = true;
+      $("#hz input:radio[value=" + value + "]").
+        prop('checked', true).button("refresh");
     } else if (param == "sample_size") {
-      document.querySelector("#bits input[value='" + PARAMS[param] + "']").checked = true;
+      $("#bits input:radio[value=" + value + "]").
+        prop('checked', true).button("refresh");
     } else {
       var id = "#" + param;
-      document.querySelector(id).value = 1000 * PARAMS[param];
-      convert(document.querySelector(id), PARAMS[param]);
+      $(id).slider("value", 1000 * value);
+      $(id).each(function(){convert(this, PARAMS[this.id]);});
     }
   });
   disenable();
 }
     
 
-document.addEventListener("DOMContentLoaded", function() {
-  document.querySelectorAll("#shape input").forEach(function (input) {
-    input.addEventListener("change", function (event) {
-      PARAMS.wave_type = parseInt(event.target.value);
-      disenable();
-      play();
-    });
+$(function() {
+  $("#shape").buttonset();
+  $("#hz").buttonset();
+  $("#bits").buttonset();
+  $("#shape input:radio").change(function (event) {
+    PARAMS.wave_type = parseInt(event.target.value);
+    disenable();
+    play();
   });
-  document.querySelectorAll("#hz input").forEach(function (input) {
-    input.addEventListener("change", function (event) {
-      SAMPLE_RATE = PARAMS.sample_rate = parseInt(event.target.value);
-      play();
-    });
+  $("#hz input:radio").change(function (event) {
+    SAMPLE_RATE = PARAMS.sample_rate = parseInt(event.target.value);
+    play();
   });
-  document.querySelectorAll("#bits input").forEach(function (input) {
-    input.addEventListener("change", function (event) {
-      SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
-      play();
-    });
+  $("#bits input:radio").change(function (event) {
+    SAMPLE_SIZE = PARAMS.sample_size = parseInt(event.target.value);
+    play();
   });
-  document.querySelectorAll("button").forEach(function (button) {
-    button.addEventListener("click", function (event) {
-      if (event.target.id === "mutate") {
-        mut();
-      } else if (event.target.id === "play") {
-        play(true);
-      } else if (event.target.id === "copy") {
-        copy();
-      } else if (event.target.id === "serialize_params") {
-        serialize_params();
-      } else if (event.target.id === "deserialize_params") {
-        deserialize_params();
-      }
-    });
-  });
-  document.querySelectorAll(".slider").forEach(function (slider) {
-    slider.addEventListener("input", function (event) {
-      convert(event.target, event.target.value / 1000.0);
-    });
-    slider.addEventListener("change", function (event) {
-      if (event.isTrusted) {
-        PARAMS[event.target.id] = event.target.value / 1000.0;
+  $("button").button();
+  $(".slider").slider({
+    value: 1000,
+    min: 0,
+    max: 1000,
+    slide: function (event, ui) {
+      convert(event.target, ui.value / 1000.0);
+    },
+    change: function(event, ui) {
+      if (event.originalEvent) {
+        PARAMS[event.target.id] = ui.value / 1000.0;
         convert(event.target, PARAMS[event.target.id]);
         play();
       }
-    });
-  });
-  document.querySelectorAll(".slider.signed").forEach(function (slider) {
-    slider.min = -1000;
-    slider.value = 0;
-  });
-  document.querySelectorAll('.slider').forEach(function (slider) {
-    var is = slider.id;
-    if (!document.querySelector('label[for="' + is + '"]')) {
-      slider.parentElement.parentElement.querySelector('th').appendChild(document.createElement('label')).setAttribute('for', is);
     }
   });
+  $(".slider").filter(".signed").
+    slider("option", "min", -1000).
+    slider("value", 0);
+  $('.slider').each(function () {
+      var is = this.id;
+      if (!$('label[for="' + is + '"]').length) 
+        $(this).parent().parent().find('th').append($('<label>', 
+                                                      {for: is}));
+    });
 
   for (var p in sliders) {
-    var control = document.getElementById(p);
+    var control = $('#' + p)[0];
     control.convert = sliders[p];
     control.units = units[p];
   }
@@ -192,7 +184,7 @@ function convert(control, v) {
       v = control.units(v);
     else
       v = v.toPrecision(4) + ' ' + control.units;
-    document.querySelector('label[for="' + control.id + '"]').innerHTML = v;
+    $('label[for="' + control.id + '"]').html(v);
   }
 }
 
@@ -410,7 +402,7 @@ a {
 <table>
   <tr><th colspan=2>Envelope
   <tr><td><div class="slider" id="p_env_attack"></div> <th>Attack time
-  <tr><td><div class="slider" id="p_env_sustain"></"></div> <th>Sustain time
+  <tr><td><div class="slider" id="p_env_sustain"></div> <th>Sustain time
   <tr><td><div class="slider" id="p_env_punch"></div> <th>Sustain punch
   <tr><td><div class="slider" id="p_env_decay"></div> <th>Decay time
   <tr><th colspan=2>Frequency
@@ -497,8 +489,8 @@ a {
   <button onclick="deserialize_params()"> ▲ Deserialize</button>
   <div id="serialize">
     <textarea></textarea>
-    <button onclick="document.querySelector('textarea').select(); document.execCommand('copy');">Copy</button>
-    <button onclick="document.getElementById('serialize').style.display = 'none';">Hide ✕</button>
+    <button onclick="$('textarea').select(); document.execCommand('copy');">Copy</button>
+    <button onclick="$('#serialize').hide();">Hide ✕</button>
   </div>
 </div>
 
